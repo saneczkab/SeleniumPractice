@@ -10,6 +10,7 @@ public class StaffTests
 {
     private IWebDriver _driver;
     private WebDriverWait _wait;
+    private ApiClient _apiClient;
     private string _baseUrl;
     private string _username;
     private string _password;
@@ -23,13 +24,19 @@ public class StaffTests
     }
 
     [OneTimeSetUp]
-    public void ReadEnv()
+    public async Task ReadEnv()
     {
         DotNetEnv.Env.Load();
         _baseUrl = Environment.GetEnvironmentVariable("BASE_URL");
         _username = Environment.GetEnvironmentVariable("USERNAME");
         _password = Environment.GetEnvironmentVariable("PASSWORD");
+
+        _apiClient = new ApiClient(_baseUrl, _username, _password);
+        await _apiClient.LoginAsync();
     }
+
+    [OneTimeTearDown]
+    public void DisposeClient() => _apiClient.Dispose();
 
     [TearDown]
     public void TearDown()
@@ -60,24 +67,6 @@ public class StaffTests
         var sidebarButton = _driver.FindElement(By.CssSelector("[data-tid='SidebarMenuButton']"));
         sidebarButton.Click();
         _wait.Until(ExpectedConditions.ElementIsVisible(By.CssSelector("[data-tid='SidePage__root']")));
-    }
-
-    private string CreateCommunity(string communityName)
-    {
-        _driver.Navigate().GoToUrl($"{_baseUrl}/communities");
-        var openFormButton = _wait
-            .Until(ExpectedConditions.ElementToBeClickable(By.XPath("//button[text()='СОЗДАТЬ']")));
-        openFormButton.Click();
-
-        var name = _driver.FindElement(By.CssSelector("[data-tid='Name']"));
-        name.SendKeys(communityName);
-
-        var createButton = _driver.FindElement(By.CssSelector("[data-tid='CreateButton']"));
-        createButton.Click();
-
-        _wait.Until(ExpectedConditions.UrlContains("settings"));
-
-        return _driver.Url.Replace("settings", "");
     }
 
     [Test]
@@ -156,16 +145,17 @@ public class StaffTests
     }
 
     [Test]
-    public void CommunityTest()
+    public async Task RemoveCommunityTest() 
+    // В swagger нет метода API для удаления сообщества, так что cleanup для этого теста не происходит
+    // При успешном прохождении теста cleanup не нужен
     {
-        Login();
         const string communityName = "Selenium test";
-        var communityLink = CreateCommunity(communityName);
+        var communityId = await _apiClient.CreateCommunityAsync(communityName);
+        var communityLink = $"{_baseUrl}/communities/{communityId}";
 
-        var title = _driver.FindElement(By.CssSelector("[data-tid='Title']"));
-        Assert.That(title.Text, Does.Contain($"Управление сообществом «{communityName}»"),
-            "После создания сообщества ожидается переход на страницу управления им");
-
+        Login();
+        await _driver.Navigate().GoToUrlAsync($"{_baseUrl}/communities/{communityId}/settings");
+        
         var openDeleteFormButton = _wait.Until(
             ExpectedConditions.ElementToBeClickable(By.CssSelector("[data-tid='DeleteButton']")));
         openDeleteFormButton.Click();
@@ -179,8 +169,8 @@ public class StaffTests
             .FindElement(By.CssSelector("[data-tid='DeleteButton']"));
         deleteButton.Click();
         _wait.Until(ExpectedConditions.TitleContains("Новости"));
-
-        _driver.Navigate().GoToUrl(communityLink);
+        
+        await _driver.Navigate().GoToUrlAsync(communityLink);
         var validationMessage = _wait.Until(
             ExpectedConditions.ElementIsVisible(By.CssSelector("[data-tid='ValidationMessage']")));
         Assert.That(validationMessage.Text,
