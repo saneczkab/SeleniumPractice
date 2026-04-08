@@ -1,3 +1,4 @@
+using System.Drawing;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
@@ -17,6 +18,7 @@ public class StaffTests
     public void Setup()
     {
         _driver = new ChromeDriver();
+        _driver.Manage().Window.Size = new Size(1000, 700);
         _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(5));
     }
 
