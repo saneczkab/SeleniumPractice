@@ -52,6 +52,7 @@ public class StaffTests
         loginButton.Click();
 
         _wait.Until(ExpectedConditions.UrlToBe($"{_baseUrl}/news"));
+        _wait.Until(ExpectedConditions.ElementExists(By.CssSelector("[data-tid='Title']")));
     }
 
     private void OpenSidebar()
